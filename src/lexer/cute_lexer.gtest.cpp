@@ -1,0 +1,95 @@
+// cute_lexer.gtest.cpp
+
+/*
+MIT License
+
+Copyright (c) 2026 Zartaj Majeed
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+
+#include <iostream>
+#include <sstream>
+#include <string>
+
+#include <gtest/gtest.h>
+
+#include "cute_lexer.h"
+#include "cute_parser.bison.h"
+
+using namespace std;
+using namespace ::testing;
+
+namespace cuteparser::testing {
+
+TEST(Lexer, test_000) {
+
+  stringstream s("url");
+  Lexer lexer(s);
+  LexParam lexParam{};
+
+  auto token = lexer.yylex(lexParam);
+
+  EXPECT_EQ(token.kind(), CuteParser::symbol_kind::S_IDENTIFIER);
+}
+
+TEST(Lexer, test_001) {
+
+  stringstream s("url --set http://example.com");
+  Lexer lexer(s);
+  LexParam lexParam{};
+
+  lexParam.get_arg_count = [](const string&) {
+    return 1;
+  };
+
+  auto token = lexer.yylex(lexParam);
+  EXPECT_EQ(token.kind(), CuteParser::symbol_kind::S_IDENTIFIER);
+
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_DASH_DASH);
+
+  auto _ = lexer.yylex(lexParam);
+  token.clear();
+  token.move(_);
+  EXPECT_EQ(token.kind(), CuteParser::symbol_kind::S_O_NAME) << "got wrong token " << token.name();
+
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_STRING);
+}
+
+TEST(Lexer, test_002) {
+
+  stringstream s(R"%(url --set "http://example.com/path with spaces")%");
+  Lexer lexer(s);
+  LexParam lexParam{};
+
+  lexParam.get_arg_count = [](const string&) {
+    return 1;
+  };
+
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_IDENTIFIER);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_DASH_DASH);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_O_NAME);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_STRING);
+}
+
+}
+
+
+
