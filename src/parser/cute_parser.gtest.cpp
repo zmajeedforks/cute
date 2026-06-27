@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <sstream>
 #include <string>
+#include <print>
 
 #include <gtest/gtest.h>
 
@@ -100,6 +101,31 @@ TEST(BisonParser, test_002) {
 #endif
 
   EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_003) {
+
+  stringstream s(R"%(
+url --set http://example.com
+url --set "http://example.com/path with spaces"
+url --match api/v1 --replace v1, v2
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  auto& ast = bisonParam.ast;
+
+  EXPECT_EQ(parser(), 0);
+
+  println("print ast");
+  ast.print();
 }
 
 }

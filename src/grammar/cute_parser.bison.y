@@ -61,20 +61,35 @@ SOFTWARE.
 
 #include <string>
 #include <functional>
+#include <variant>
 #include <chrono>
 #include <print>
 
 #include "locations.bison.h"
+#include "ast/cute_ast.h"
 
 namespace cuteparser {
 
 using namespace std;
 using namespace chrono;
 
+
 struct Context {
+  unordered_map<string, int> argCounts = {
+    {"match", 1},
+    {"replace", 2},
+    {"set", 1},
+  };
+  int get_arg_count(const string& s) {
+    if(!argCounts.contains(s)) {
+      return -1;
+    }
+    return argCounts[s];
+  }
 };
 
 struct BisonParam {
+  ASTNode ast{};
   Context context{};
   struct Stats {
     time_point<steady_clock> parseStartTime;
@@ -199,8 +214,8 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 
 // define callbacks for lexer to use for lexical feedback
   if(!lexParam.get_arg_count) {
-    lexParam.get_arg_count = [&context = bisonParam.context](const string&) -> int {
-      return 0;
+    lexParam.get_arg_count = [&context = bisonParam.context](const string& s) -> int {
+      return context.get_arg_count(s);
     };
   }
 
@@ -217,6 +232,17 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 %token <string> IDENTIFIER
 %token <string> O_NAME
 
+%nterm <string> target arg op_name
+%nterm <vector<string>> arg_list
+
+%nterm <Script> script
+// change statement type when it can be more than one type
+%nterm <Mutation> statement
+%nterm <Mutation> mutation
+%nterm <Operation> operation
+
+%nterm <vector<Statement>> statements
+%nterm <vector<Operation>> operations
 
 %start script
 
@@ -224,25 +250,70 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 
 // no code allowed in rules section, just bison comments that are dropped from .cpp
 
-script: statements postprocess
+script:
+  statements postprocess {
+  $$.statements = move($statements);
+  bisonParam.ast = $$;
+}
 
-statements: statement | statements statement | statements ";" statement
+statements:
+  statement {
+  $$.push_back($statement);
+}
+| statements statement {
+  $$.append_range($1);
+  $$.push_back($statement);
+}
+| statements ";" statement {
+  $$.append_range($1);
+  $$.push_back($statement);
+}
 
-statement: mutation
+statement:
+  mutation
 
-operations: operation | operations operation
+mutation:
+  target {
+  $$.name = $target;
+}
+| target operations {
+  $$.name = $target;
+  $$.target = move($target);
+  $$.operations = move($operations);
+}
 
-operation: "--" op_name arg_list ARG_END
+operations:
+  operation {
+  $$.push_back($operation);
+}
+| operations operation {
+  $$.append_range($1);
+  $$.push_back(move($operation));
+}
+
+operation:
+  "--" op_name arg_list ARG_END {
+  $$.name = $op_name;
+  $$.op_name = $op_name;
+  $$.arg_list = move($arg_list);
+}
 
 op_name: O_NAME
 
-arg_list: %empty | arg | arg_list "," arg
+arg_list:
+  %empty {
+}
+| arg {
+  $$.push_back(move($arg));
+}
+| arg_list "," arg {
+  $$.append_range($1);
+  $$.push_back(move($arg));
+}
 
 arg: STRING | IDENTIFIER
 
-mutation: object | object operations
-
-object: IDENTIFIER | STRING
+target: IDENTIFIER | STRING
 
 // midrule action for postprocessing
 postprocess: %empty {
