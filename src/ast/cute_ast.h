@@ -11,8 +11,8 @@ namespace {
 
 template<class... Ts>
 struct overload: Ts... { using Ts::operator()...; };
-
 }
+
 
 namespace cuteparser {
 
@@ -36,7 +36,6 @@ struct NodeBase {
 
 struct Script: public NodeBase {
   vector<Statement> statements{};
-  void print() const;
 };
 
 #if 0
@@ -50,21 +49,15 @@ struct Option: public NodeBase {
 struct Mutation: public NodeBase {
   string target{};
   vector<Operation> operations{};
-  void print() const;
 };
 
 struct Operation: public NodeBase {
   string op_name{};
   vector<string> arg_list{};
-  void print() const {
-    println("operation op_name {}", op_name);
-    for(const auto& arg: arg_list) {
-      println("operation {} arg {}", op_name, arg);
-    }
-  }
+
 };
 
-struct ASTNode: variant<Script, Mutation, Operation, Option> {
+struct ASTNode: variant<Script, Mutation, Operation> {
   using variant::variant;
 
   string name() const {
@@ -77,47 +70,48 @@ struct ASTNode: variant<Script, Mutation, Operation, Option> {
     });
   }
 
-  void print() const {
+  void print(int indent) const {
 
     visit(overload{
 
-      [](const Script& s) -> void {
-        println("ast visit script name {}", s.name);
-        s.print();
+      [indent](this auto&& self, const Script& s) -> void {
+        (void)indent;
+        println("{:>{}}ast visit script name {} indent {}", "", indent, s.name, indent);
+        for(auto& statement: s.statements) {
+          self(statement, indent + 2);
+        }
       },
 
-      [](const Mutation& m) -> void {
-        println("ast visit mutation name {}", m.name);
-        m.print();
+      [](this auto&& self, const Mutation& m, int indent) -> void {
+        (void)indent;
+        println("{:>{}}ast visit mutation name {} indent {}", "", indent, m.name, indent);
+        println("mutation target {}", m.target);
+        for(auto& op: m.operations) {
+          self(op, indent + 2);
+        }
       },
 
-      [](const Operation& o) -> void {
-        println("ast visit operation name {}", o.name);
-        o.print();
+      [](this auto&&, const Operation& o, int indent) -> void {
+        (void)indent;
+        println("{:>{}}ast visit operation name {} indent {}", "", indent, o.name, indent);
+        println("operation op_name {}", o.op_name);
+        for(const auto& arg: o.arg_list) {
+          println("operation {} arg {}", o.op_name, arg);
+        }
       },
 
       [](const auto&) -> void {
-        println("ast visit catchall pattern match");
-      }
+        println("ast visit 0 param catchall pattern match");
+      },
+
+      [](const auto&, int) -> void {
+        println("ast visit 1 param catchall pattern match");
+      },
+
     });
   }
 
 };
-
-inline
-void Script::print() const {
-  for(const auto& statement: statements) {
-    statement.print();
-  }
-}
-
-inline
-void Mutation::print() const {
-  println("mutation target {}", target);
-  for(const auto& op: operations) {
-    op.print();
-  }
-}
 
 }
 

@@ -125,7 +125,7 @@ url --match api/v1 --replace v1, v2
   EXPECT_EQ(parser(), 0);
 
   println("print ast");
-  ast.print();
+  ast.print(0);
 }
 
 }
