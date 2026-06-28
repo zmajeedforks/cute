@@ -39,7 +39,7 @@ using namespace ::testing;
 
 namespace cuteparser::testing {
 
-TEST(BisonParser, test_000) {
+TEST(BisonParser, test_0000) {
 
   stringstream s("url");
   Lexer lexer(s);
@@ -51,11 +51,11 @@ TEST(BisonParser, test_000) {
   },
   bisonParam,
   lexParam);
-  
+
   EXPECT_EQ(parser(), 0);
 }
 
-TEST(BisonParser, test_001) {
+TEST(BisonParser, test_0001) {
 
   stringstream s("url --set http://example.com");
   Lexer lexer(s);
@@ -73,7 +73,7 @@ TEST(BisonParser, test_001) {
   },
   bisonParam,
   lexParam);
-  
+
 #if 0
   lexer.set_debug(1);
   parser.set_debug_level(1);
@@ -82,7 +82,7 @@ TEST(BisonParser, test_001) {
   EXPECT_EQ(parser(), 0);
 }
 
-TEST(BisonParser, test_002) {
+TEST(BisonParser, test_0002) {
 
   stringstream s("url --replace v1, v2");
   Lexer lexer(s);
@@ -99,7 +99,7 @@ TEST(BisonParser, test_002) {
   },
   bisonParam,
   lexParam);
-  
+
 #if 0
   lexer.set_debug(1);
   parser.set_debug_level(1);
@@ -108,7 +108,7 @@ TEST(BisonParser, test_002) {
   EXPECT_EQ(parser(), 0);
 }
 
-TEST(BisonParser, test_003) {
+TEST(BisonParser, test_0003) {
 
   stringstream s(R"%(
 url --set http://example.com
@@ -129,11 +129,11 @@ url --match api/v1 --replace v1, v2
 
 #if 0
   println("print ast");
-  bisonParam.ast.print(0);
+  bisonParam.ast.printAst(0);
 #endif
 }
 
-TEST(BisonParser, test_004) {
+TEST(BisonParser, test_0004) {
 
   stringstream s(R"%(
 url1 --match example.com --replace vi, v2
@@ -152,7 +152,7 @@ url1 --match example.com --replace vi, v2
 
 }
 
-TEST(BisonParser, test_005) {
+TEST(BisonParser, test_0005) {
 
   stringstream s(R"%(
 url1 --match example.com
@@ -172,7 +172,7 @@ url1 --match example.com
 
 }
 
-TEST(BisonParser, test_006) {
+TEST(BisonParser, test_0006) {
 
   stringstream s(R"%(
 url1 --match example.com
@@ -195,6 +195,123 @@ url2 --replace http, https
 
   EXPECT_EQ(parser(), 0);
 
+}
+
+TEST(BisonParser, test_0007) {
+
+  stringstream s("url | host");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_0008) {
+
+  stringstream s("url | host | path");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_0009) {
+
+  stringstream s(R"%(
+url |
+host
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_0010) {
+
+  stringstream s(R"%(
+url
+| host
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_0011) {
+
+  stringstream s(R"%(
+url --set http://example.com |
+url --match api/v1 --replace v1, v2
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+}
+
+TEST(BisonParser, test_0012) {
+
+  stringstream s(R"%(
+url1 --match example.com
+     --replace vi, v2
+     --replace prod, dev
+
+     --replace .com, .org |
+
+url2 --replace http, https
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+#if 0
+  println("print ast");
+  bisonParam.ast.printAst(0);
+#endif
 }
 
 }

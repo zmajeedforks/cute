@@ -170,9 +170,15 @@ using symbol_type = CuteParser::symbol_type;
 }
 
  /* semicolon terminator */
+ /* also see logic for  semicolon insertion in place of newline terminator */
 ";" {
   loc.columns(yyleng);
   return CuteParser::make_SEMICOLON(loc);
+}
+
+"|" {
+  loc.columns(yyleng);
+  return CuteParser::make_PIPE(loc);
 }
 
  /* match newlines separately to correctly update line numbers */

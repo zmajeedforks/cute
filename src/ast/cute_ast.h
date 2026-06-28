@@ -112,37 +112,38 @@ struct ASTNode: variant<Script, Pipeline, Segment, Mutation, Operation> {
     });
   }
 
-  void print(int indent) const {
+  void printAst(int indent) const {
 
     visit(overload{
 
       [indent](this auto&& self, const Script& s) -> void {
-        (void)indent;
-        println("{:>{}}ast visit script name {} indent {}", "", indent, s.name, indent);
+        print("{:>{}}", "", indent);
+        println("ast visit script name {} indent {}", s.name, indent);
         for(auto& pipeline: s.pipelines) {
           self(pipeline, indent + 2);
         }
       },
 
-      [indent](this auto&& self, const Pipeline& p) -> void {
-        (void)indent;
-        println("{:>{}}ast visit pipeline name {} indent {}", "", indent, p.name, indent);
+      [](this auto&& self, const Pipeline& p, int indent) -> void {
+        print("{:>{}}", "", indent);
+        println("ast visit pipeline name {} indent {}", p.name, indent);
         for(auto& segment: p.segments) {
           self(segment, indent + 2);
         }
       },
 
-      [indent](this auto&& self, const Segment& s) -> void {
-        (void)indent;
-        println("{:>{}}ast visit segment name {} indent {}", "", indent, s.name, indent);
+      [](this auto&& self, const Segment& s, int indent) -> void {
+        print("{:>{}}", "", indent);
+        println("ast visit segment name {} indent {}", s.name, indent);
         for(auto& statement: s.statements) {
           self(statement, indent + 2);
         }
       },
 
       [](this auto&& self, const Mutation& m, int indent) -> void {
-        (void)indent;
-        println("{:>{}}ast visit mutation name {} indent {}", "", indent, m.name, indent);
+        print("{:>{}}", "", indent);
+        println("ast visit mutation name {} indent {}", m.name, indent);
+        print("{:>{}}", "", indent);
         println("mutation target {}", m.target);
         for(auto& op: m.operations) {
           self(op, indent + 2);
@@ -150,10 +151,12 @@ struct ASTNode: variant<Script, Pipeline, Segment, Mutation, Operation> {
       },
 
       [](this auto&&, const Operation& o, int indent) -> void {
-        (void)indent;
-        println("{:>{}}ast visit operation name {} indent {}", "", indent, o.name, indent);
+        print("{:>{}}", "", indent);
+        println("ast visit operation name {} indent {}", o.name, indent);
+        print("{:>{}}", "", indent);
         println("operation op_name {}", o.op_name);
         for(const auto& arg: o.arg_list) {
+          print("{:>{}}", "", indent);
           println("operation {} arg {}", o.op_name, arg);
         }
       },
