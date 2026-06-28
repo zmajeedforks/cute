@@ -183,8 +183,10 @@ using namespace std;
 
 #include <chrono>
 #include <print>
+#include <ranges>
 
 using namespace std;
+using views::as_rvalue;
 
 namespace {
   const string defaultInputName = "inputstream"s;
@@ -223,10 +225,11 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 
 %token COMMA                ","
 %token DASH_DASH            "--"
+%token PIPE                 "|"
 %token SEMICOLON            ";"
 
 // virtual split token for lexer to signal end of args using lexical feedback
-%token ARG_END
+%token V_ARG_END
 
 %token <string> STRING
 %token <string> IDENTIFIER
@@ -236,13 +239,15 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 %nterm <vector<string>> arg_list
 
 %nterm <Script> script
-// change statement type when it can be more than one type
+// change statement type when there's more than one type
 %nterm <Mutation> statement
 %nterm <Mutation> mutation
 %nterm <Operation> operation
+%nterm <Pipeline> pipeline
+%nterm <Segment> segment
 
-%nterm <vector<Statement>> statements
 %nterm <vector<Operation>> operations
+%nterm <vector<Pipeline>> pipelines
 
 %start script
 
@@ -251,22 +256,38 @@ void cuteparser::CuteParser::error(const location& loc, const string& msg) {
 // no code allowed in rules section, just bison comments that are dropped from .cpp
 
 script:
-  statements postprocess {
-  $$.statements = move($statements);
+  pipelines postprocess {
+  $$.pipelines = move($pipelines);
   bisonParam.ast = $$;
 }
 
-statements:
+pipelines:
+  pipeline {
+  $$.push_back(move($pipeline));
+}
+| pipelines pipeline {
+  $$.append_range(as_rvalue($1));
+  $$.push_back(move($pipeline));
+}
+
+// pipeline is sequence of segments
+pipeline:
+  segment {
+  $$.segments.push_back(move($segment));
+}
+| pipeline "|" segment {
+  $$.segments.append_range(as_rvalue($1.segments));
+  $$.segments.push_back(move($segment));
+}
+
+// segment is sequence of statements
+segment:
   statement {
-  $$.push_back($statement);
+  $$.statements.push_back(move($statement));
 }
-| statements statement {
-  $$.append_range($1);
-  $$.push_back($statement);
-}
-| statements ";" statement {
-  $$.append_range($1);
-  $$.push_back($statement);
+| segment ";" statement {
+  $$.statements.append_range(as_rvalue($1.statements));
+  $$.statements.push_back(move($statement));
 }
 
 statement:
@@ -284,15 +305,15 @@ mutation:
 
 operations:
   operation {
-  $$.push_back($operation);
+  $$.push_back(move($operation));
 }
 | operations operation {
-  $$.append_range($1);
+  $$.append_range(as_rvalue($1));
   $$.push_back(move($operation));
 }
 
 operation:
-  "--" op_name arg_list ARG_END {
+  "--" op_name arg_list V_ARG_END {
   $$.name = $op_name;
   $$.op_name = $op_name;
   $$.arg_list = move($arg_list);
@@ -307,13 +328,13 @@ arg_list:
   $$.push_back(move($arg));
 }
 | arg_list "," arg {
-  $$.append_range($1);
+  $$.append_range(as_rvalue($1));
   $$.push_back(move($arg));
 }
 
 arg: STRING | IDENTIFIER
 
-target: IDENTIFIER | STRING
+target: IDENTIFIER
 
 // midrule action for postprocessing
 postprocess: %empty {

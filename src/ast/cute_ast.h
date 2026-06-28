@@ -2,6 +2,7 @@
 #define CUTE_AST_H
 
 #include <string>
+#include <memory>
 #include <functional>
 #include <variant>
 #include <chrono>
@@ -19,9 +20,16 @@ namespace cuteparser {
 using namespace std;
 using namespace chrono;
 
+struct AndExpression;
 struct ASTNode;
+struct Block;
+struct Expr;
 struct Mutation;
+struct NotExpr;
+struct Pipeline;
 struct Operation;
+struct OrExpr;
+struct Segment;
 
 #if 1
 using Statement = Mutation;
@@ -35,7 +43,19 @@ struct NodeBase {
 };
 
 struct Script: public NodeBase {
+  vector<Pipeline> pipelines{};
+};
+
+struct Pipeline: public NodeBase {
+  vector<Segment> segments{};
+};
+
+struct Segment: public NodeBase {
   vector<Statement> statements{};
+};
+
+struct Block: public NodeBase {
+  vector<Statement> statements;
 };
 
 #if 0
@@ -57,7 +77,29 @@ struct Operation: public NodeBase {
 
 };
 
-struct ASTNode: variant<Script, Mutation, Operation> {
+struct LitExpr: variant<monostate, bool> {
+  using variant::variant;
+};
+
+struct AndExpr: public NodeBase {
+  unique_ptr<Expr> left;
+  unique_ptr<Expr> right;
+};
+
+struct OrExpr: public NodeBase {
+  unique_ptr<Expr> left;
+  unique_ptr<Expr> right;
+};
+
+struct NotExpr: public NodeBase {
+  unique_ptr<Expr> expr;
+};
+
+struct Expr: variant<LitExpr, AndExpr, OrExpr, NotExpr> {
+  using variant::variant;
+};
+
+struct ASTNode: variant<Script, Pipeline, Segment, Mutation, Operation> {
   using variant::variant;
 
   string name() const {
@@ -77,6 +119,22 @@ struct ASTNode: variant<Script, Mutation, Operation> {
       [indent](this auto&& self, const Script& s) -> void {
         (void)indent;
         println("{:>{}}ast visit script name {} indent {}", "", indent, s.name, indent);
+        for(auto& pipeline: s.pipelines) {
+          self(pipeline, indent + 2);
+        }
+      },
+
+      [indent](this auto&& self, const Pipeline& p) -> void {
+        (void)indent;
+        println("{:>{}}ast visit pipeline name {} indent {}", "", indent, p.name, indent);
+        for(auto& segment: p.segments) {
+          self(segment, indent + 2);
+        }
+      },
+
+      [indent](this auto&& self, const Segment& s) -> void {
+        (void)indent;
+        println("{:>{}}ast visit segment name {} indent {}", "", indent, s.name, indent);
         for(auto& statement: s.statements) {
           self(statement, indent + 2);
         }

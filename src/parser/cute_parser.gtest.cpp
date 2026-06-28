@@ -74,6 +74,11 @@ TEST(BisonParser, test_001) {
   bisonParam,
   lexParam);
   
+#if 0
+  lexer.set_debug(1);
+  parser.set_debug_level(1);
+#endif
+
   EXPECT_EQ(parser(), 0);
 }
 
@@ -120,12 +125,76 @@ url --match api/v1 --replace v1, v2
   bisonParam,
   lexParam);
 
-  auto& ast = bisonParam.ast;
+  EXPECT_EQ(parser(), 0);
+
+#if 0
+  println("print ast");
+  bisonParam.ast.print(0);
+#endif
+}
+
+TEST(BisonParser, test_004) {
+
+  stringstream s(R"%(
+url1 --match example.com --replace vi, v2
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
 
   EXPECT_EQ(parser(), 0);
 
-  println("print ast");
-  ast.print(0);
+}
+
+TEST(BisonParser, test_005) {
+
+  stringstream s(R"%(
+url1 --match example.com
+     --replace vi, v2
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+
+}
+
+TEST(BisonParser, test_006) {
+
+  stringstream s(R"%(
+url1 --match example.com
+     --replace vi, v2
+     --replace prod, dev
+
+     --replace .com, .org
+
+url2 --replace http, https
+)%");
+  Lexer lexer(s);
+  BisonParam bisonParam;
+  LexParam lexParam;
+
+  CuteParser parser([&lexer](LexParam& lexParam) -> CuteParser::symbol_type {
+    return lexer.yylex(lexParam);
+  },
+  bisonParam,
+  lexParam);
+
+  EXPECT_EQ(parser(), 0);
+
 }
 
 }

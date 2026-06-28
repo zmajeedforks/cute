@@ -109,13 +109,19 @@ using symbol_type = CuteParser::symbol_type;
  // lexical feedback
 
  // check for split token to return
-  if(lexer_state == lexer_state::opStart) {
+  if(lexer_state == lexer_state::sendSplitToken) {
+    lexer_state = lexer_state::normal;
+    //println("cute.yylex.entry: return split token {}", splitToken.name());
+    return splitToken;
+  }
+  if(lexer_state == lexer_state::opName) {
     numArgLeft = param.get_arg_count(oName);
     lexer_state = lexer_state::argList;
   }
   if(lexer_state == lexer_state::argEnd) {
     lexer_state = lexer_state::normal;
-    return CuteParser::make_ARG_END(loc);
+    //println("cute.yylex.entry: return arg_end");
+    return CuteParser::make_V_ARG_END(loc);
   }
 
  // flex rules section
@@ -172,6 +178,7 @@ using symbol_type = CuteParser::symbol_type;
  /* match newlines separately to correctly update line numbers */
 \n {
   loc.lines(yyleng);
+  newline_seen = true;
 }
 
  /* whitespace except newline, same as [ \t\v\f\r] but easier to understand */
@@ -190,7 +197,8 @@ using symbol_type = CuteParser::symbol_type;
   if(lexer_state == lexer_state::argList) {
     if(numArgLeft == 0) {
       lexer_state = lexer_state::normal;
-      return CuteParser::make_ARG_END(loc);
+      println("cute.yylex.eof: return arg_end");
+      return CuteParser::make_V_ARG_END(loc);
     }
   }
   return CuteParser::make_YYEOF(loc);

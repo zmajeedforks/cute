@@ -40,13 +40,16 @@ public:
 // this yylex is a simple wrapper for yylexGen
   CuteParser::symbol_type yylex(LexParam& param) {
     auto token = yylexGen(param);
-    return checkToken(token);
+    auto token1 = checkToken(token, param.loc);
+    lastToken.clear();
+    lastToken.move(token1);
+    return lastToken;
   }
 
   Lexer() = default;
 
-  explicit Lexer(istream* yyin_arg): yyFlexLexer(yyin_arg) {}
-  explicit Lexer(istream& yyin_arg): yyFlexLexer(&yyin_arg) {}
+  explicit Lexer(std::istream* yyin_arg): yyFlexLexer(yyin_arg) {}
+  explicit Lexer(std::istream& yyin_arg): yyFlexLexer(&yyin_arg) {}
 
 private:
 
@@ -64,35 +67,63 @@ private:
 // but I think it's nicer this way since there's no pattern matching involved
 // and they're really meant for logic before or after a token is matched
 
+  using symbol_type = CuteParser::symbol_type;
+  using symbol_kind = CuteParser::symbol_kind;
+
   enum class lexer_state {
     normal,
-    opStart,
+    opName,
     argList,
     argEnd,
+    inMutation,
+    newTarget,
+    sendSplitToken,
   } lexer_state = lexer_state::normal;
 
   string oName;
   int numArgLeft{};
+  symbol_type splitToken{};
+  symbol_type lastToken{};
+
+  bool newline_seen = false;
 
 private:
 
-  CuteParser::symbol_type checkToken(const CuteParser::symbol_type& token) {
+  CuteParser::symbol_type checkToken(CuteParser::symbol_type& token, location& loc) {
 
-    using symbol_kind = CuteParser::symbol_kind;
     constexpr auto S_O_NAME = symbol_kind::S_O_NAME;
     constexpr auto S_IDENTIFIER = symbol_kind::S_IDENTIFIER;
     constexpr auto S_STRING = symbol_kind::S_STRING;
+    constexpr auto S_V_ARG_END = symbol_kind::S_V_ARG_END;
+    constexpr auto S_DASH_DASH = symbol_kind::S_DASH_DASH;
+    constexpr auto S_YYEOF = symbol_kind::S_YYEOF;
 
     constexpr auto normal = lexer_state::normal;
-    constexpr auto opStart = lexer_state::opStart;
+    constexpr auto opName = lexer_state::opName;
     constexpr auto argList = lexer_state::argList;
     constexpr auto argEnd = lexer_state::argEnd;
+    constexpr auto sendSplitToken = lexer_state::sendSplitToken;
+
+    bool was_newline_seen = newline_seen;
+    newline_seen = false;
 
     switch(lexer_state) {
     case normal:
+// last operation just ended and there's no new operation
+// send newline to signal end of statement, prepare to send current token from next yylex call
+      if(lastToken.kind() == S_V_ARG_END && token.kind() != S_DASH_DASH && token.kind() != S_YYEOF) {
+        //println("cute.checkToken: got token {} after arg_end", token.name());
+        if(was_newline_seen) {
+          //println("cute.checkToken: newline seen earlier, return semicolon now and {} next time", token.name());
+          lexer_state = sendSplitToken;
+          splitToken.clear();
+          splitToken.move(token);
+          return CuteParser::make_SEMICOLON(loc);
+        }
+      }
       if(token.kind() == S_O_NAME) {
         oName = token.value.as<string>();
-        lexer_state = opStart;
+        lexer_state = opName;
       }
       return token;
 
@@ -109,7 +140,7 @@ private:
       break;
     }
 
-    throw CuteParser::syntax_error(token.location, "unexpected combination of lexer_state "s + to_string((int)lexer_state) + " and token " + to_string(token.kind()));
+    throw CuteParser::syntax_error(token.location, "unexpected combination of lexer_state "s + to_string((int)lexer_state) + " and token " + token.name());
   }
   
 

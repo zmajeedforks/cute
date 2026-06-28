@@ -89,6 +89,23 @@ TEST(Lexer, test_002) {
   EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_STRING);
 }
 
+TEST(Lexer, test_003) {
+
+  stringstream s(R"%(url --set "http://example.com/path with spaces")%");
+  Lexer lexer(s);
+  LexParam lexParam{};
+
+  lexParam.get_arg_count = [](const string&) {
+    return 1;
+  };
+
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_IDENTIFIER);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_DASH_DASH);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_O_NAME);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_STRING);
+  EXPECT_EQ(lexer.yylex(lexParam).kind(), CuteParser::symbol_kind::S_V_ARG_END);
+}
+
 }
 
 
